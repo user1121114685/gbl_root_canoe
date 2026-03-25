@@ -6,7 +6,8 @@ clean:
 	rm -rf dist || true
 	mkdir dist
 patch: clean
-	python tools/extractfv.py ./images/abl.img ./dist/ABL_original.efi
+	python tools/extractfv.py ./images/abl.img -o ./dist
+	mv ./dist/LinuxLoader.efi ./dist/ABL_original.efi
 	gcc -o tools/patch_abl tools/patch_abl.c
 	./tools/patch_abl ./dist/ABL_original.efi ./dist/ABL.efi > ./dist/patch_log.txt
 	rm tools/patch_abl

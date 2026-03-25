@@ -28,3 +28,5 @@ extracted/
 
 # VS Code
 .vscode/
+
+edk2/build_modulepkg.log

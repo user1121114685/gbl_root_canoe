@@ -14,7 +14,7 @@ concurrency:
 
 jobs:
   build-request:
-    if: contains(github.event.issue.labels.*.name, 'build-request') && github.event.issue.state == 'open'
+    if: github.event.issue.state == 'open' && (contains(github.event.issue.labels.*.name, 'build-request') || startsWith(github.event.issue.title, '[Build]'))
     runs-on: ubuntu-latest
 
     steps:

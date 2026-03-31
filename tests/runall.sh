@@ -20,4 +20,9 @@ if [ $? -ne 0 ]; then
     echo "Test 004_test_patch.sh failed. Stopping further tests."
     exit 1
 fi
+./005_test_patch_from_efi.sh
+if [ $? -ne 0 ]; then
+    echo "Test 005_test_patch_from_efi.sh failed. Stopping further tests."
+    exit 1
+fi
 echo "All tests passed successfully."

@@ -1,4 +1,3 @@
-$ cat .github/ISSUE_TEMPLATE/issue-template-bug.md
 ---
 name: 🐛 错误报告 | Bug Report
 about: 请详细描述您使用过程中遇到的问题。| Please describe in detail the problems you encountered in the process of using.
@@ -17,4 +16,3 @@ labels: ["bug"]
 #### 您遇到了什么问题？ | What are your problems?
 
 #### 您期望的结果是怎样的？ | What is your expected outcome?
-

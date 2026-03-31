@@ -1,0 +1,131 @@
+name: Issue Build
+
+on:
+  issues:
+    types: [opened, edited, reopened, labeled]
+
+permissions:
+  contents: read
+  issues: write
+
+concurrency:
+  group: issue-build-${{ github.event.issue.number }}
+  cancel-in-progress: true
+
+jobs:
+  build-request:
+    if: contains(github.event.issue.labels.*.name, 'build-request') && github.event.issue.state == 'open'
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install dependencies
+        run: sudo apt-get update && sudo apt-get install -y lld clang llvm uuid-dev zip
+
+      - name: Prepare build input
+        id: prepare
+        env:
+          ISSUE_BODY: ${{ github.event.issue.body || '' }}
+        run: python3 .github/scripts/prepare_issue_build_input.py images/ABL.EFI
+
+      - name: Build
+        id: build
+        run: make build
+
+      - name: Package dist
+        id: package
+        run: |
+          mkdir -p release
+          zip -r "release/issue-${{ github.event.issue.number }}-dist.zip" dist
+
+      - name: Upload package artifact
+        id: upload
+        uses: actions/upload-artifact@v4
+        with:
+          name: issue-${{ github.event.issue.number }}-dist
+          path: release/issue-${{ github.event.issue.number }}-dist.zip
+          if-no-files-found: error
+          retention-days: 14
+
+      - name: Comment success
+        if: success()
+        uses: actions/github-script@v7
+        env:
+          ARTIFACT_URL: ${{ steps.upload.outputs.artifact-url }}
+          ISSUE_NUMBER: ${{ github.event.issue.number }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        with:
+          script: |
+            const body = [
+              "自动编译已完成。",
+              "",
+              `- 构建输入：${{ steps.prepare.outputs.source_kind }}`,
+              `- 下载构件：${process.env.ARTIFACT_URL || process.env.RUN_URL}`,
+              `- 工作流日志：${process.env.RUN_URL}`,
+              "",
+              "压缩包内包含本次构建生成的 `dist/` 目录。"
+            ].join("\n");
+            await github.rest.issues.createComment({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: Number(process.env.ISSUE_NUMBER),
+              body
+            });
+
+      - name: Close issue
+        if: success()
+        uses: actions/github-script@v7
+        with:
+          script: |
+            await github.rest.issues.update({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: context.issue.number,
+              state: "closed"
+            });
+
+      - name: Comment failure
+        if: failure()
+        uses: actions/github-script@v7
+        env:
+          ISSUE_NUMBER: ${{ github.event.issue.number }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+          PREPARE_OUTCOME: ${{ steps.prepare.outcome }}
+          BUILD_OUTCOME: ${{ steps.build.outcome }}
+        with:
+          script: |
+            const prepareFailed = process.env.PREPARE_OUTCOME === "failure";
+            const buildFailed = process.env.BUILD_OUTCOME === "failure";
+            let body;
+            if (prepareFailed) {
+              body = [
+                "自动编译没有开始。",
+                "",
+                "请确认 issue 中提供了以下任意一种输入：",
+                "- 可直接下载的 `ABL.EFI` 链接。",
+                "- 一个包含且仅包含一个 `ABL.EFI` 的 `.zip` 或 `.tar.gz` 压缩包。",
+                "",
+                `工作流日志：${process.env.RUN_URL}`
+              ].join("\n");
+            } else if (buildFailed) {
+              body = [
+                "自动编译失败。",
+                "",
+                "请查看工作流日志确认构建错误；修正后编辑这个 issue 会重新触发流程。",
+                "",
+                `工作流日志：${process.env.RUN_URL}`
+              ].join("\n");
+            } else {
+              body = [
+                "构建后处理失败。",
+                "",
+                `工作流日志：${process.env.RUN_URL}`
+              ].join("\n");
+            }
+            await github.rest.issues.createComment({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: Number(process.env.ISSUE_NUMBER),
+              body
+            });

@@ -25,8 +25,8 @@ body:
     attributes:
       label: ABL 压缩包 | ABL Package
       description: "上传包含 `ABL.EFI` 的 `.zip` 或 `.tar.gz` 文件。"
-      accept: ".zip,.tar.gz"
     validations:
+      accept: ".zip,.tar.gz"
       required: true
   - type: input
     id: abl_efi_url

@@ -62,6 +62,42 @@ static void locset_print(const LocSet* s) {
     Print_patcher("}\n");
 }
 
+static CHAR8 ascii_upper_patcher(CHAR8 c) {
+    if (c >= 'a' && c <= 'z') return (CHAR8)(c - 'a' + 'A');
+    return c;
+}
+
+static BOOLEAN ascii_streq_patcher(const CHAR8* a, const CHAR8* b) {
+    while (*a && *b) {
+        if (*a != *b) return FALSE;
+        ++a;
+        ++b;
+    }
+    return *a == *b;
+}
+
+static BOOLEAN normalize_hwcountry(const CHAR8* input, CHAR8* output, UINT32 output_size) {
+    static const CHAR8* allowed[] = {
+        "CN", "GLOBAL", "EU", "IN", "RU", "ID", "TW", "TR"
+    };
+
+    if (input == NULL || output == NULL || output_size == 0) return FALSE;
+
+    UINT32 len = 0;
+    while (input[len] != 0) {
+        if (len + 1 >= output_size) return FALSE;
+        output[len] = ascii_upper_patcher(input[len]);
+        ++len;
+    }
+    output[len] = 0;
+
+    for (UINT32 i = 0; i < sizeof(allowed) / sizeof(allowed[0]); ++i) {
+        if (ascii_streq_patcher(output, allowed[i])) return TRUE;
+    }
+
+    return FALSE;
+}
+
 /* 判断一条指令是否为任意形式的 STRB，并提取字段 */
 typedef struct {
     BOOLEAN valid;
@@ -587,13 +623,25 @@ static INT32 patch_first_adrl_by_string(CHAR8* buffer, INT32 size, UINT64 load_b
     return -1;
 }
 
-INT32 patch_hwcountry_global(CHAR8* buffer, INT32 size, UINT64 load_base) {
-    const CHAR8 hwcountry_value[] = "GLOBAL";
-    const CHAR8 hwcountry_line[]  = "HwCountry: GLOBAL";
+INT32 patch_hwcountry_global(CHAR8* buffer, INT32 size, UINT64 load_base,
+                             const CHAR8* hwcountry_value) {
+    CHAR8 hwcountry_line[32];
+    const CHAR8 prefix[] = "HwCountry: ";
+    INT32 prefix_len = (INT32)strlen(prefix);
+    INT32 value_len = (INT32)strlen(hwcountry_value);
+
+    if (prefix_len + value_len + 1 > (INT32)sizeof(hwcountry_line)) {
+        Print_patcher("HwCountry patch: value too long: %s\n", hwcountry_value);
+        return -1;
+    }
+
+    memcpy_patcher(hwcountry_line, prefix, prefix_len);
+    memcpy_patcher(hwcountry_line + prefix_len, hwcountry_value, value_len + 1);
+
     const INT32 slack_start = 0x7F000;
     const INT32 slack_end   = 0x80000;
     INT32 cursor = find_zero_run(buffer, size, slack_start, slack_end,
-                                 (INT32)(strlen(hwcountry_value) + strlen(hwcountry_line) + 2));
+                                 value_len + (INT32)strlen(hwcountry_line) + 2);
     if (cursor < 0) {
         Print_patcher("HwCountry patch: no slack space found in 0x%X-0x%X\n",
                       slack_start, slack_end);
@@ -727,14 +775,22 @@ INT32 patch_adrl_unlocked_to_locked_verify(CHAR8* buffer, INT32 size, UINT64 loa
     return patched;
 }
 
-BOOLEAN PatchBuffer(CHAR8* data, INT32 size) {
+BOOLEAN PatchBufferWithHwCountry(CHAR8* data, INT32 size, const CHAR8* hwcountry) {
+    CHAR8 normalized_hwcountry[8];
+
+    if (!normalize_hwcountry(hwcountry, normalized_hwcountry, sizeof(normalized_hwcountry))) {
+        Print_patcher("Error: Unsupported HwCountry value: %s\n",
+                      hwcountry ? hwcountry : "(null)");
+        return FALSE;
+    }
+
     #ifndef DISABLE_PATCH_1
     if (patch_abl_gbl(data, size) != 0)
         Print_patcher("Warning: Failed to patch ABL GBL\n");
     #endif
     #ifndef DISABLE_PATCH_6
-    if (patch_hwcountry_global(data, size, 0) != 0) {
-        Print_patcher("Error: Failed to patch HwCountry -> GLOBAL\n");
+    if (patch_hwcountry_global(data, size, 0, normalized_hwcountry) != 0) {
+        Print_patcher("Error: Failed to patch HwCountry -> %s\n", normalized_hwcountry);
         free(data);
         return FALSE;
     }
@@ -770,4 +826,8 @@ BOOLEAN PatchBuffer(CHAR8* data, INT32 size) {
                (int)lock_register_num);
     }
     return 1;
+}
+
+BOOLEAN PatchBuffer(CHAR8* data, INT32 size) {
+    return PatchBufferWithHwCountry(data, size, "GLOBAL");
 }

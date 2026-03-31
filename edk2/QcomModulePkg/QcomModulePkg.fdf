@@ -53,13 +53,16 @@
 #
 ################################################################################
 
+[Defines]
+  DEFINE EFISP_SIZE = 0x00300000   # 3072 KB, must match the efisp partition size
+
 
 [FD.QcomModule_EFI]
 BaseAddress   = 0x80200000|gEmbeddedTokenSpaceGuid.PcdEmbeddedFdBaseAddress  #The base address of the FLASH Device.
-Size          = 0x0003D000|gEmbeddedTokenSpaceGuid.PcdEmbeddedFdSize         #The size in bytes of the FLASH Device
+Size          = $(EFISP_SIZE)|gEmbeddedTokenSpaceGuid.PcdEmbeddedFdSize      # The size in bytes of the FLASH Device
 ErasePolarity = 1
 BlockSize     = 0x200
-NumBlocks     = 0x1E8
+NumBlocks     = 0x1800
 
 ################################################################################
 #
@@ -78,7 +81,7 @@ NumBlocks     = 0x1E8
 ################################################################################
 
 # 512 bytes of configuration header & 8 bytes of image header
-0x00000000|0x0003D000
+0x00000000|$(EFISP_SIZE)
 gEmbeddedTokenSpaceGuid.PcdFlashFvMainBase|gEmbeddedTokenSpaceGuid.PcdFlashFvMainSize
 FV = FVMAIN_COMPACT
 

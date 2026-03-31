@@ -12,7 +12,10 @@
 #
 from __future__ import print_function
 import Common.LongFilePathOs as os, codecs, re
-import distutils.util
+try:
+    from shlex import split as split_quoted
+except ImportError:
+    from distutils.util import split_quoted
 import Common.EdkLogger as EdkLogger
 from io import BytesIO
 from Common.BuildToolError import *
@@ -233,7 +236,7 @@ class UniFileClassObject(object):
     # Get Language definition
     #
     def GetLangDef(self, File, Line):
-        Lang = distutils.util.split_quoted((Line.split(u"//")[0]))
+        Lang = split_quoted((Line.split(u"//")[0]))
         if len(Lang) != 3:
             try:
                 FileIn = UniFileClassObject.OpenUniFile(LongFilePath(File.Path))

@@ -1,17 +1,20 @@
 #include "patchlib.h"
 /* ==================== main ==================== */
 INT32 main(INT32 argc, CHAR8* argv[]) {
-    if (argc != 3) {
-        Print_patcher("Usage: %s <input_file> <output_file>\n", argv[0]);
+    const CHAR8* hwcountry = "GLOBAL";
+
+    if (argc != 3 && argc != 4) {
+        Print_patcher("Usage: %s <input_file> <output_file> [hwcountry]\n", argv[0]);
         return EXIT_FAILURE;
     }
+    if (argc == 4) hwcountry = argv[3];
     CHAR8* data = NULL;
     INT32 size = 0;
     if (read_file(argv[1], &data, &size) != 0) {
         Print_patcher("Failed to read file: %s\n", argv[1]);
         return EXIT_FAILURE;
     }
-    if (!PatchBuffer(data,size))
+    if (!PatchBufferWithHwCountry(data, size, hwcountry))
     {
         Print_patcher("Patching failed\n");
         free(data);
@@ -23,7 +26,7 @@ INT32 main(INT32 argc, CHAR8* argv[]) {
         free(data);
         return EXIT_FAILURE;
     }
-    if (fwrite(data, 1, size, out) != size) {
+    if ((INT32)fwrite(data, 1, size, out) != size) {
         Print_patcher("Failed to write output\n");
         fclose(out);
         free(data);

@@ -14,11 +14,14 @@ clean:
 prepare_patch: clean
 	@if abl_efi_path=$$(find ./images -maxdepth 1 -type f -iname 'abl.efi' | head -n 1) && [ -n "$$abl_efi_path" ]; then \
 		cp "$$abl_efi_path" ./dist/ABL_original.efi; \
+	elif abl_elf_path=$$(find ./images -maxdepth 1 -type f -iname 'abl.elf' | head -n 1) && [ -n "$$abl_elf_path" ]; then \
+		python tools/extractfv.py "$$abl_elf_path" -o ./dist; \
+		mv ./dist/LinuxLoader.efi ./dist/ABL_original.efi; \
 	elif [ -f ./images/abl.img ]; then \
 		python tools/extractfv.py ./images/abl.img -o ./dist; \
 		mv ./dist/LinuxLoader.efi ./dist/ABL_original.efi; \
 	else \
-		echo "Missing build input. Provide ./images/abl.img or ./images/ABL.EFI."; \
+		echo "Missing build input. Provide ./images/abl.img, ./images/ABL.elf, or ./images/ABL.EFI."; \
 		exit 1; \
 	fi
 	gcc -o tools/patch_abl tools/patch_abl.c

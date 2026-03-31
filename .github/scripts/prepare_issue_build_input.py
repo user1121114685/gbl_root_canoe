@@ -12,6 +12,7 @@ import urllib.request
 import zipfile
 
 
+MARKDOWN_LINK_RE = re.compile(r"\[([^\]]+)\]\((https?://[^)\s]+)\)")
 URL_RE = re.compile(r"https?://[^\s<>()]+")
 ARCHIVE_SUFFIXES = (".zip", ".tar", ".tar.gz", ".tgz")
 
@@ -33,26 +34,52 @@ def normalize_url(url: str) -> str:
     return url.rstrip(".,)")
 
 
-def iter_urls(body: str) -> list[str]:
-    return [normalize_url(url) for url in URL_RE.findall(body or "")]
+def candidate_names(label: str, url: str) -> list[str]:
+    names = []
+    if label:
+        names.append(label.lower())
+    path_name = pathlib.PurePosixPath(parsed_path(url)).name.lower()
+    if path_name:
+        names.append(path_name)
+    return names
+
+
+def iter_sources(body: str) -> list[tuple[str, str]]:
+    sources = []
+    seen_urls = set()
+
+    for label, url in MARKDOWN_LINK_RE.findall(body or ""):
+        normalized_url = normalize_url(url)
+        if normalized_url in seen_urls:
+            continue
+        seen_urls.add(normalized_url)
+        sources.append((label.strip(), normalized_url))
+
+    for url in URL_RE.findall(body or ""):
+        normalized_url = normalize_url(url)
+        if normalized_url in seen_urls:
+            continue
+        seen_urls.add(normalized_url)
+        sources.append(("", normalized_url))
+
+    return sources
 
 
 def parsed_path(url: str) -> str:
     return urllib.parse.urlparse(url).path.lower()
 
 
-def pick_source(urls: list[str]) -> tuple[str, str]:
-    for url in urls:
-        if pathlib.PurePosixPath(parsed_path(url)).name.lower() == "abl.efi":
-            return "efi_url", url
+def pick_source(sources: list[tuple[str, str]]) -> tuple[str, str]:
+    for label, url in sources:
+        if "abl.elf" in candidate_names(label, url):
+            return "elf_url", url
 
-    for url in urls:
-        lower_path = parsed_path(url)
-        if lower_path.endswith(ARCHIVE_SUFFIXES):
+    for label, url in sources:
+        if any(name.endswith(ARCHIVE_SUFFIXES) for name in candidate_names(label, url)):
             return "archive_url", url
 
     fail(
-        "No valid build input found in issue body. Provide a direct ABL.EFI link or an archive containing ABL.EFI."
+        "No valid build input found in issue body. Provide a direct ABL.elf link or an archive containing ABL.elf."
     )
 
 
@@ -96,29 +123,29 @@ def extract_archive(archive_path: pathlib.Path, destination: pathlib.Path) -> No
     fail(f"Unsupported archive type: {archive_path.name}")
 
 
-def find_abl_efi(search_root: pathlib.Path) -> pathlib.Path:
+def find_abl_elf(search_root: pathlib.Path) -> pathlib.Path:
     matches = sorted(
-        path for path in search_root.rglob("*") if path.is_file() and path.name.lower() == "abl.efi"
+        path for path in search_root.rglob("*") if path.is_file() and path.name.lower() == "abl.elf"
     )
     if not matches:
-        fail("No ABL.EFI file was found in the uploaded archive.")
+        fail("No ABL.elf file was found in the uploaded archive.")
     if len(matches) > 1:
-        fail("Multiple ABL.EFI files were found in the uploaded archive. Keep only one.")
+        fail("Multiple ABL.elf files were found in the uploaded archive. Keep only one.")
     return matches[0]
 
 
 def main() -> None:
     issue_body = os.environ.get("ISSUE_BODY", "")
-    destination = pathlib.Path(sys.argv[1] if len(sys.argv) > 1 else "images/ABL.EFI")
-    urls = iter_urls(issue_body)
-    source_kind, source_url = pick_source(urls)
+    destination = pathlib.Path(sys.argv[1] if len(sys.argv) > 1 else "images/ABL.elf")
+    sources = iter_sources(issue_body)
+    source_kind, source_url = pick_source(sources)
 
     destination.parent.mkdir(parents=True, exist_ok=True)
 
     with tempfile.TemporaryDirectory() as temp_dir:
         temp_root = pathlib.Path(temp_dir)
 
-        if source_kind == "efi_url":
+        if source_kind == "elf_url":
             download_file(source_url, destination)
         else:
             archive_name = pathlib.PurePosixPath(parsed_path(source_url)).name or "build-input.zip"
@@ -128,7 +155,7 @@ def main() -> None:
 
             download_file(source_url, archive_path)
             extract_archive(archive_path, extract_root)
-            shutil.copy2(find_abl_efi(extract_root), destination)
+            shutil.copy2(find_abl_elf(extract_root), destination)
 
     append_output("source_kind", source_kind)
     append_output("source_url", source_url)

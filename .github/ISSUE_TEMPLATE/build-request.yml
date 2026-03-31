@@ -1,5 +1,5 @@
 name: "编译请求 | Build Request"
-description: "上传包含 ABL.EFI 的压缩包并触发 GitHub Actions 自动编译"
+description: "上传包含 ABL.elf 的压缩包并触发 GitHub Actions 自动编译"
 title: "[Build] "
 labels: ["build-request"]
 body:
@@ -8,13 +8,21 @@ body:
       value: |
         请使用这个模板提交自动编译请求。
 
-        GitHub issue 表单不支持直接上传 `.efi` 文件，所以这里要求上传一个压缩包，并且压缩包内必须包含且仅包含一个名为 `ABL.EFI` 的文件，文件名匹配时忽略大小写。
+        压缩包内必须包含且仅包含一个名为 `ABL.elf` 的文件，文件名匹配时忽略大小写。
+
+        当前支持机型：
+        - 理论上：所有小米红米骁龙8EliteGen5处理器设备
+        - 小米17
+        - 小米17Pro
+        - 小米17ProMax
+        - 小米17Ultra
+        - 红米K90ProMax
   - type: checkboxes
     id: checklist
     attributes:
       label: 提交前确认 | Checklist
       options:
-        - label: 压缩包内包含且仅包含一个名为 `ABL.EFI` 的文件。
+        - label: 压缩包内包含且仅包含一个名为 `ABL.elf` 的文件。
           required: true
         - label: 我理解工作流会使用该文件作为 `make build` 的输入。
           required: true
@@ -24,24 +32,25 @@ body:
     id: abl_package
     attributes:
       label: ABL 压缩包 | ABL Package
-      description: "上传包含 `ABL.EFI` 的 `.zip` 或 `.tar.gz` 文件。"
+      description: "上传包含 `ABL.elf` 的压缩包。"
     validations:
       required: true
   - type: input
-    id: abl_efi_url
+    id: abl_elf_url
     attributes:
-      label: ABL.EFI 直链（可选） | Direct URL (Optional)
-      description: "如果你已经有可以直接下载 `ABL.EFI` 的链接，可以填写这里；填写后会优先使用该链接。"
-      placeholder: "https://example.com/ABL.EFI"
+      label: ABL.elf 直链（可选） | Direct URL (Optional)
+      description: "如果你已经有可以直接下载 `ABL.elf` 的链接，可以填写这里；填写后会优先使用该链接。"
+      placeholder: "https://example.com/ABL.elf"
     validations:
       required: false
   - type: input
     id: device
     attributes:
-      label: 设备型号（可选） | Device (Optional)
-      placeholder: "例如：Xiaomi Pad 6S Pro"
+      label: 设备型号 | Device
+      description: "请填写上方支持列表中的机型名称。"
+      placeholder: "例如：小米17Ultra"
     validations:
-      required: false
+      required: true
   - type: textarea
     id: notes
     attributes:

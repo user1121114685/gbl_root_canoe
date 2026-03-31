@@ -27,7 +27,7 @@ jobs:
         id: prepare
         env:
           ISSUE_BODY: ${{ github.event.issue.body || '' }}
-        run: python3 .github/scripts/prepare_issue_build_input.py images/ABL.EFI
+        run: python3 .github/scripts/prepare_issue_build_input.py images/ABL.elf
 
       - name: Build
         id: build
@@ -103,8 +103,8 @@ jobs:
                 "自动编译没有开始。",
                 "",
                 "请确认 issue 中提供了以下任意一种输入：",
-                "- 可直接下载的 `ABL.EFI` 链接。",
-                "- 一个包含且仅包含一个 `ABL.EFI` 的 `.zip` 或 `.tar.gz` 压缩包。",
+                "- 可直接下载的 `ABL.elf` 链接。",
+                "- 一个包含且仅包含一个 `ABL.elf` 的压缩包。",
                 "",
                 `工作流日志：${process.env.RUN_URL}`
               ].join("\n");

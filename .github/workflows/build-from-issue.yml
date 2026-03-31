@@ -29,9 +29,13 @@ jobs:
           ISSUE_BODY: ${{ github.event.issue.body || '' }}
         run: python3 .github/scripts/prepare_issue_build_input.py images/ABL.elf
 
+      - name: Detect build threads
+        id: threads
+        run: echo "count=$(nproc)" >> "$GITHUB_OUTPUT"
+
       - name: Build
         id: build
-        run: make build
+        run: make build BUILD_THREADS=${{ steps.threads.outputs.count }}
 
       - name: Package dist
         id: package
@@ -61,6 +65,7 @@ jobs:
               "自动编译已完成。",
               "",
               `- 构建输入：${{ steps.prepare.outputs.source_kind }}`,
+              `- 编译线程：${{ steps.threads.outputs.count }}`,
               `- 下载构件：${process.env.ARTIFACT_URL || process.env.RUN_URL}`,
               `- 工作流日志：${process.env.RUN_URL}`,
               "",
